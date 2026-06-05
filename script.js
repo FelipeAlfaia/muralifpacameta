@@ -11,15 +11,11 @@ let editingMerendaDay = null;
  
 const data = {
   opinioes: JSON.parse(localStorage.getItem('ifpa_opinioes') || '[]'),
-  eventos: JSON.parse(localStorage.getItem('ifpa_eventos') || 'null') || [
-    { id: 1, titulo: 'Semana Nacional de Ciência e Tecnologia', desc: 'Exposições, palestras e experimentos científicos realizados pelos alunos dos cursos técnicos.', data: '2025-10-21', hora: '08:00', local: 'Auditório Principal', cat: 'academico' },
-    { id: 2, titulo: 'Gincana Esportiva Interturmas', desc: 'Competições de futebol, vôlei e xadrez entre as turmas do campus.', data: '2025-11-08', hora: '13:00', local: 'Quadra Poliesportiva', cat: 'esporte' },
-    { id: 3, titulo: 'Mostra Cultural Amazônica', desc: 'Apresentações artísticas e culturais valorizando as tradições do Pará e da região do Tocantins.', data: '2025-11-22', hora: '18:00', local: 'Pátio Central', cat: 'cultura' }
-  ],
+  eventos: JSON.parse(localStorage.getItem('ifpa_eventos') || 'null'),
   merenda: JSON.parse(localStorage.getItem('ifpa_merenda') || '{}'),
   likedOpinioes: JSON.parse(localStorage.getItem('ifpa_liked') || '[]')
 };
- 
+
 function save() {
   localStorage.setItem('ifpa_opinioes', JSON.stringify(data.opinioes));
   localStorage.setItem('ifpa_eventos', JSON.stringify(data.eventos));
