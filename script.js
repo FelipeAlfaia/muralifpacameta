@@ -1,171 +1,265 @@
-const ADMIN_PIN = '1234';
-let isAdmin = false;
- 
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {
+  getFirestore, collection, doc,
+  addDoc, setDoc, deleteDoc, getDoc,
+  onSnapshot, query, orderBy, updateDoc, increment, serverTimestamp
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+// ─── CONSTANTES ───────────────────────────────────────────────
+const ADMIN_PIN = '1234'; // Altere para o PIN desejado
+const STORAGE_KEY = 'ifpa_fb_config';
+const LIKED_KEY = 'ifpa_liked_fb';
+
 const DIAS = ['Segunda','Terça','Quarta','Quinta','Sexta'];
 const DIAS_SHORT = ['SEG','TER','QUA','QUI','SEX'];
 const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-const MESES_FULL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
- 
+
+// ─── STATE ────────────────────────────────────────────────────
+let db = null;
+let isAdmin = false;
 let currentWeekOffset = 0;
-let editingMerendaDay = null;
- 
-const data = {
-  opinioes: JSON.parse(localStorage.getItem('ifpa_opinioes') || '[]'),
-  eventos: JSON.parse(localStorage.getItem('ifpa_eventos') || 'null'),
-  merenda: JSON.parse(localStorage.getItem('ifpa_merenda') || '{}'),
-  likedOpinioes: JSON.parse(localStorage.getItem('ifpa_liked') || '[]')
+let editingMerendaKey = null;
+let currentSort = 'likes';
+let opinioes = [];
+let eventos = [];
+let merenda = {};
+let likedOpinioes = JSON.parse(localStorage.getItem(LIKED_KEY) || '[]');
+let unsubOpinioes = null;
+let unsubEventos = null;
+let unsubMerenda = null;
+
+// ─── TOAST ────────────────────────────────────────────────────
+function toast(msg, tipo = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (tipo ? ' ' + tipo : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = '', 3000);
+}
+
+// ─── FIREBASE SETUP ───────────────────────────────────────────
+function salvarConfigFirebase() {
+  window.salvarConfigFirebase();
+}
+window.salvarConfigFirebase = function() {
+  const raw = document.getElementById('firebase-config-input').value.trim();
+  const errEl = document.getElementById('setup-error');
+  errEl.style.display = 'none';
+
+  // Extrai só o conteúdo entre o primeiro { e o último }
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) {
+    errEl.textContent = 'Não encontrei um objeto { } válido. Copie somente o firebaseConfig do console Firebase.';
+    errEl.style.display = 'block';
+    return;
+  }
+  let body = raw.slice(start + 1, end);
+
+  // Converte JS para JSON:
+  // 1) Remove comentários de linha (// ...)
+  body = body.replace(/\/\/[^\n]*/g, '');
+  // 2) Coloca aspas duplas nas chaves sem aspas: apiKey: → "apiKey":
+  body = body.replace(/([{,\s])([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+  // 3) Troca aspas simples por duplas nos valores
+  body = body.replace(/:\s*'([^']*)'/g, ': "$1"');
+  // 4) Remove vírgulas antes de }
+  body = body.replace(/,\s*(})/g, '$1');
+
+  let cfg;
+  try {
+    cfg = JSON.parse('{' + body + '}');
+  } catch(e) {
+    errEl.innerHTML = 'Não consegui interpretar o conteúdo. Tente colar <strong>somente o trecho entre { e }</strong>, por exemplo:<br><br>'
+      + '<code style="font-size:11px;background:#f5f5f5;padding:6px 10px;display:block;border-radius:6px;margin-top:6px;line-height:1.8">'
+      + '{\n  "apiKey": "AIzaSy...",\n  "projectId": "ifpa-cameta",\n  ...\n}'
+      + '</code>';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!cfg.apiKey || !cfg.projectId) {
+    errEl.textContent = 'Configuração incompleta: os campos apiKey e projectId são obrigatórios.';
+    errEl.style.display = 'block';
+    return;
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+  initFirebase(cfg);
 };
 
-function save() {
-  localStorage.setItem('ifpa_opinioes', JSON.stringify(data.opinioes));
-  localStorage.setItem('ifpa_eventos', JSON.stringify(data.eventos));
-  localStorage.setItem('ifpa_merenda', JSON.stringify(data.merenda));
-  localStorage.setItem('ifpa_liked', JSON.stringify(data.likedOpinioes));
-}
- 
-function getWeekDates(offset) {
-  const now = new Date();
-  const day = now.getDay();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
-  const dates = [];
-  for (let i = 0; i < 5; i++) {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    dates.push(d);
+function initFirebase(cfg) {
+  try {
+    const app = initializeApp(cfg);
+    db = getFirestore(app);
+    document.getElementById('modal-setup').classList.remove('open');
+    iniciarListeners();
+  } catch(e) {
+    document.getElementById('setup-error').textContent = 'Erro ao conectar: ' + e.message;
+    document.getElementById('setup-error').style.display = 'block';
   }
-  return dates;
 }
- 
-function dateKey(d) {
-  return d.toISOString().slice(0, 10);
+
+function iniciarListeners() {
+  // Opiniões — tempo real
+  const qOp = query(collection(db, 'opinioes'), orderBy('createdAt', 'desc'));
+  unsubOpinioes = onSnapshot(qOp, snap => {
+    opinioes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderOpinioes(currentSort);
+    atualizarStats();
+  });
+
+  // Eventos — tempo real
+  const qEv = query(collection(db, 'eventos'), orderBy('data'));
+  unsubEventos = onSnapshot(qEv, snap => {
+    eventos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderEventos();
+    atualizarStats();
+  });
+
+  // Merenda — tempo real
+  unsubMerenda = onSnapshot(collection(db, 'merenda'), snap => {
+    merenda = {};
+    snap.docs.forEach(d => { merenda[d.id] = d.data().itens || []; });
+    renderMerenda();
+    renderInicio();
+  });
+
+  hideLoading();
 }
- 
-function isToday(d) {
-  return dateKey(d) === dateKey(new Date());
+
+function hideLoading() {
+  const ls = document.getElementById('loading-screen');
+  ls.classList.add('hide');
+  setTimeout(() => ls.style.display = 'none', 600);
 }
- 
-function showSection(id) {
+
+// ─── SEÇÕES ───────────────────────────────────────────────────
+window.showSection = function(id) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('section-' + id).classList.add('active');
   document.getElementById('tab-' + id).classList.add('active');
   if (id === 'merenda') renderMerenda();
-  if (id === 'eventos') renderEventos();
-  if (id === 'opiniao') renderOpinioes('likes');
   if (id === 'inicio') renderInicio();
-}
- 
-function renderInicio() {
-  const totLikes = data.opinioes.reduce((s, o) => s + o.likes, 0);
-  document.getElementById('stat-opiniao').textContent = data.opinioes.length;
-  document.getElementById('stat-eventos').textContent = data.eventos.length;
+};
+
+// ─── STATS & INÍCIO ───────────────────────────────────────────
+function atualizarStats() {
+  const totLikes = opinioes.reduce((s, o) => s + (o.likes || 0), 0);
+  document.getElementById('stat-opiniao').textContent = opinioes.length;
+  document.getElementById('stat-eventos').textContent = eventos.length;
   document.getElementById('stat-likes').textContent = totLikes;
- 
+}
+
+function renderInicio() {
+  atualizarStats();
   const todayKey = dateKey(new Date());
-  const merenda = data.merenda[todayKey];
+  const items = merenda[todayKey];
   const box = document.getElementById('merenda-hoje-box');
-  if (merenda && merenda.length) {
-    box.innerHTML = merenda.map(i => `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:14px"><span style="color:var(--verde-claro);font-size:16px">•</span>${i}</div>`).join('');
+  if (items && items.length) {
+    box.innerHTML = items.map(i => `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:14px"><span style="color:var(--verde-claro);font-size:16px">•</span>${i}</div>`).join('');
   } else {
     box.innerHTML = '<span style="color:var(--cinza);font-style:italic;font-size:13px">Cardápio ainda não cadastrado para hoje</span>';
   }
- 
   const now = new Date();
-  const prox = data.eventos
-    .filter(e => new Date(e.data + 'T00:00:00') >= now)
-    .sort((a,b) => a.data.localeCompare(b.data))[0];
+  const prox = [...eventos].filter(e => new Date(e.data + 'T00:00:00') >= now).sort((a,b) => a.data.localeCompare(b.data))[0];
   const pbox = document.getElementById('proximo-evento-box');
   if (prox) {
     const d = new Date(prox.data + 'T00:00:00');
-    pbox.innerHTML = `
-      <div style="display:flex;gap:14px;align-items:flex-start">
-        <div style="background:var(--verde-escuro);color:#fff;border-radius:10px;min-width:50px;padding:8px 6px;text-align:center;flex-shrink:0">
-          <div style="font-family:'Sora',sans-serif;font-size:20px;font-weight:700;line-height:1">${d.getDate()}</div>
-          <div style="font-size:10px;opacity:0.75;text-transform:uppercase">${MESES[d.getMonth()]}</div>
-        </div>
-        <div>
-          <span class="event-badge badge-${prox.cat}">${prox.cat.charAt(0).toUpperCase()+prox.cat.slice(1)}</span>
-          <div style="font-family:'Sora',sans-serif;font-weight:600;font-size:15px;margin-bottom:4px">${prox.titulo}</div>
-          <div style="font-size:12px;color:var(--cinza)">🕐 ${prox.hora} · 📍 ${prox.local}</div>
-        </div>
-      </div>`;
+    pbox.innerHTML = `<div style="display:flex;gap:14px;align-items:flex-start">
+      <div style="background:var(--verde-escuro);color:#fff;border-radius:10px;min-width:50px;padding:8px 6px;text-align:center;flex-shrink:0">
+        <div style="font-family:'Sora',sans-serif;font-size:20px;font-weight:700;line-height:1">${d.getDate()}</div>
+        <div style="font-size:10px;opacity:0.75;text-transform:uppercase">${MESES[d.getMonth()]}</div>
+      </div>
+      <div>
+        <span class="event-badge badge-${prox.cat}">${prox.cat.charAt(0).toUpperCase()+prox.cat.slice(1)}</span>
+        <div style="font-family:'Sora',sans-serif;font-weight:600;font-size:15px;margin-bottom:4px">${prox.titulo}</div>
+        <div style="font-size:12px;color:var(--cinza)">🕐 ${prox.hora || '—'} · 📍 ${prox.local || '—'}</div>
+      </div>
+    </div>`;
   } else {
     pbox.innerHTML = '<span style="color:var(--cinza);font-style:italic;font-size:13px">Nenhum evento próximo cadastrado</span>';
   }
 }
- 
-function enviarOpiniao() {
+
+// ─── OPINIÕES ─────────────────────────────────────────────────
+window.enviarOpiniao = async function() {
+  if (!db) return;
   const texto = document.getElementById('opiniao-texto').value.trim();
   const cat = document.getElementById('opiniao-categoria').value;
-  if (!texto) return;
-  data.opinioes.unshift({ id: Date.now(), texto, cat, likes: 0, data: new Date().toLocaleDateString('pt-BR') });
-  document.getElementById('opiniao-texto').value = '';
-  save();
-  renderOpinioes(currentSort);
-  document.getElementById('stat-opiniao').textContent = data.opinioes.length;
-}
- 
-let currentSort = 'likes';
-function sortOpinioes(mode, btn) {
+  if (!texto) { toast('Escreva sua opinião antes de enviar.', 'error'); return; }
+  const btn = document.getElementById('btn-enviar');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  try {
+    await addDoc(collection(db, 'opinioes'), {
+      texto, cat, likes: 0, createdAt: serverTimestamp(),
+      data: new Date().toLocaleDateString('pt-BR')
+    });
+    document.getElementById('opiniao-texto').value = '';
+    toast('✅ Opinião enviada! Obrigado pela contribuição.');
+  } catch(e) {
+    toast('Erro ao enviar: ' + e.message, 'error');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Enviar';
+};
+
+window.sortOpinioes = function(mode, btn) {
   currentSort = mode;
   document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderOpinioes(mode);
-}
- 
+};
+
 function renderOpinioes(mode) {
-  const list = [...data.opinioes];
-  if (mode === 'likes') list.sort((a,b) => b.likes - a.likes);
+  const list = [...opinioes];
+  if (mode === 'likes') list.sort((a,b) => (b.likes||0) - (a.likes||0));
   const el = document.getElementById('opinions-list');
   if (!list.length) {
     el.innerHTML = '<div style="text-align:center;color:var(--cinza);padding:2rem;font-size:14px">Ainda não há opiniões. Seja o primeiro a contribuir! 💡</div>';
     return;
   }
-  el.innerHTML = list.map((o, idx) => {
-    const liked = data.likedOpinioes.includes(o.id);
+  el.innerHTML = list.map(o => {
+    const liked = likedOpinioes.includes(o.id);
     return `<div class="opinion-card">
       <div class="opinion-body">
         <div class="opinion-text">${o.texto}</div>
         <div class="opinion-meta">
           <span class="opinion-tag">${o.cat}</span>
-          <span>📅 ${o.data}</span>
+          <span>📅 ${o.data || ''}</span>
         </div>
       </div>
-      <button class="like-btn ${liked ? 'liked' : ''}" onclick="toggleLike(${o.id})" title="Votar nesta sugestão">
-        <span class="like-icon">${liked ? '👍' : '👍'}</span>
-        <span class="like-count">${o.likes}</span>
+      <button class="like-btn ${liked ? 'liked' : ''}" onclick="toggleLike('${o.id}')" title="Votar nesta sugestão">
+        <span class="like-icon">👍</span>
+        <span class="like-count">${o.likes || 0}</span>
       </button>
     </div>`;
   }).join('');
 }
- 
-function toggleLike(id) {
-  const idx = data.likedOpinioes.indexOf(id);
-  const op = data.opinioes.find(o => o.id === id);
-  if (!op) return;
-  if (idx === -1) {
-    data.likedOpinioes.push(id);
-    op.likes++;
-  } else {
-    data.likedOpinioes.splice(idx, 1);
-    op.likes = Math.max(0, op.likes - 1);
+
+window.toggleLike = async function(id) {
+  if (!db) return;
+  const idx = likedOpinioes.indexOf(id);
+  const delta = idx === -1 ? 1 : -1;
+  if (idx === -1) likedOpinioes.push(id);
+  else likedOpinioes.splice(idx, 1);
+  localStorage.setItem(LIKED_KEY, JSON.stringify(likedOpinioes));
+  try {
+    await updateDoc(doc(db, 'opinioes', id), { likes: increment(delta) });
+  } catch(e) {
+    toast('Erro ao registrar voto.', 'error');
   }
-  save();
-  renderOpinioes(currentSort);
-  const totLikes = data.opinioes.reduce((s, o) => s + o.likes, 0);
-  document.getElementById('stat-likes').textContent = totLikes;
-}
- 
+};
+
+// ─── EVENTOS ──────────────────────────────────────────────────
 function renderEventos() {
   document.getElementById('btn-add-evento').style.display = isAdmin ? 'block' : 'none';
   const grid = document.getElementById('events-grid');
-  if (!data.eventos.length) {
+  if (!eventos.length) {
     grid.innerHTML = '<div style="text-align:center;color:var(--cinza);padding:2rem;font-size:14px">Nenhum evento cadastrado.</div>';
     return;
   }
-  const sorted = [...data.eventos].sort((a,b) => a.data.localeCompare(b.data));
-  grid.innerHTML = sorted.map(e => {
+  grid.innerHTML = eventos.map(e => {
     const d = new Date(e.data + 'T00:00:00');
     return `<div class="event-card">
       <div class="event-date-box">
@@ -175,34 +269,71 @@ function renderEventos() {
       <div class="event-body">
         <span class="event-badge badge-${e.cat}">${e.cat.charAt(0).toUpperCase()+e.cat.slice(1)}</span>
         <div class="event-title">${e.titulo}</div>
-        <div class="event-desc">${e.desc}</div>
+        <div class="event-desc">${e.desc || ''}</div>
         <div class="event-meta">
-          <span>🕐 ${e.hora}</span>
-          <span>📍 ${e.local}</span>
-          ${isAdmin ? `<span style="margin-left:auto"><button onclick="deleteEvento(${e.id})" style="background:none;border:none;color:#DC2626;cursor:pointer;font-size:12px">✕ Remover</button></span>` : ''}
+          <span>🕐 ${e.hora || '—'}</span>
+          <span>📍 ${e.local || '—'}</span>
+          ${isAdmin ? `<button onclick="deleteEvento('${e.id}')" style="margin-left:auto;background:none;border:none;color:#DC2626;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif">✕ Remover</button>` : ''}
         </div>
       </div>
     </div>`;
   }).join('');
 }
- 
-function deleteEvento(id) {
-  if (!confirm('Remover este evento?')) return;
-  data.eventos = data.eventos.filter(e => e.id !== id);
-  save();
-  renderEventos();
+
+window.openEventoModal = function() {
+  document.getElementById('modal-evento').classList.add('open');
+};
+
+window.saveEvento = async function() {
+  if (!db) return;
+  const titulo = document.getElementById('evento-titulo').value.trim();
+  const desc = document.getElementById('evento-desc').value.trim();
+  const data_ = document.getElementById('evento-data').value;
+  const hora = document.getElementById('evento-hora').value;
+  const local = document.getElementById('evento-local').value.trim();
+  const cat = document.getElementById('evento-cat').value;
+  if (!titulo || !data_) { toast('Preencha título e data.', 'error'); return; }
+  const btn = document.getElementById('btn-save-evento');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try {
+    await addDoc(collection(db, 'eventos'), { titulo, desc, data: data_, hora, local, cat, createdAt: serverTimestamp() });
+    closeModal('modal-evento');
+    ['titulo','desc','data','hora','local'].forEach(f => document.getElementById('evento-'+f).value = '');
+    toast('✅ Evento cadastrado com sucesso!');
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Salvar no Firebase';
+};
+
+window.deleteEvento = async function(id) {
+  if (!confirm('Remover este evento permanentemente?')) return;
+  try {
+    await deleteDoc(doc(db, 'eventos', id));
+    toast('Evento removido.');
+  } catch(e) {
+    toast('Erro ao remover: ' + e.message, 'error');
+  }
+};
+
+// ─── MERENDA ──────────────────────────────────────────────────
+function getWeekDates(offset) {
+  const now = new Date();
+  const day = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
+  return Array.from({length: 5}, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate()+i); return d; });
 }
- 
+function dateKey(d) { return d.toISOString().slice(0,10); }
+function isToday(d) { return dateKey(d) === dateKey(new Date()); }
+
 function renderMerenda() {
   const dates = getWeekDates(currentWeekOffset);
-  const start = dates[0], end = dates[4];
-  document.getElementById('week-label').textContent =
-    `${start.getDate()} ${MESES[start.getMonth()]} – ${end.getDate()} ${MESES[end.getMonth()]}`;
- 
-  const grid = document.getElementById('merenda-grid');
-  grid.innerHTML = dates.map((d, i) => {
+  const s = dates[0], e = dates[4];
+  document.getElementById('week-label').textContent = `${s.getDate()} ${MESES[s.getMonth()]} – ${e.getDate()} ${MESES[e.getMonth()]}`;
+  document.getElementById('merenda-grid').innerHTML = dates.map((d,i) => {
     const key = dateKey(d);
-    const items = data.merenda[key] || [];
+    const items = merenda[key] || [];
     const today = isToday(d);
     return `<div class="merenda-day ${today ? 'today' : ''}">
       <div class="merenda-day-header">
@@ -212,93 +343,88 @@ function renderMerenda() {
       <div class="merenda-day-body">
         ${items.length
           ? items.map(it => `<div class="merenda-item"><div class="merenda-dot"></div><span>${it}</span></div>`).join('')
-          : '<div class="merenda-empty">Cardápio não informado</div>'
-        }
-        ${isAdmin ? `<button class="merenda-edit-btn" onclick="openMerendaEdit('${key}', '${DIAS[i]} ${d.getDate()}/${d.getMonth()+1}')">✏ Editar</button>` : ''}
+          : '<div class="merenda-empty">Cardápio não informado</div>'}
+        ${isAdmin ? `<button class="merenda-edit-btn" onclick="openMerendaEdit('${key}','${DIAS[i]} ${d.getDate()}/${d.getMonth()+1}')">✏ Editar</button>` : ''}
       </div>
     </div>`;
   }).join('');
 }
- 
-function changeWeek(dir) {
-  currentWeekOffset += dir;
-  renderMerenda();
-}
- 
-function openMerendaEdit(key, label) {
-  editingMerendaDay = key;
+
+window.changeWeek = function(dir) { currentWeekOffset += dir; renderMerenda(); };
+
+window.openMerendaEdit = function(key, label) {
+  editingMerendaKey = key;
   document.getElementById('modal-merenda-title').textContent = `🍽 Editar Merenda – ${label}`;
-  const items = data.merenda[key] || [];
-  document.getElementById('merenda-input').value = items.join('\n');
+  document.getElementById('merenda-input').value = (merenda[key] || []).join('\n');
   document.getElementById('modal-merenda').classList.add('open');
-}
- 
-function saveMerenda() {
+};
+
+window.saveMerenda = async function() {
+  if (!db || !editingMerendaKey) return;
   const raw = document.getElementById('merenda-input').value;
-  const items = raw.split('\n').map(s => s.trim()).filter(Boolean);
-  data.merenda[editingMerendaDay] = items;
-  save();
-  closeModal('modal-merenda');
-  renderMerenda();
-  renderInicio();
-}
- 
-function openEventoModal() {
-  document.getElementById('modal-evento').classList.add('open');
-}
- 
-function saveEvento() {
-  const titulo = document.getElementById('evento-titulo').value.trim();
-  const desc = document.getElementById('evento-desc').value.trim();
-  const data_ = document.getElementById('evento-data').value;
-  const hora = document.getElementById('evento-hora').value;
-  const local = document.getElementById('evento-local').value.trim();
-  const cat = document.getElementById('evento-cat').value;
-  if (!titulo || !data_) { alert('Preencha pelo menos o título e a data.'); return; }
-  data.eventos.push({ id: Date.now(), titulo, desc, data: data_, hora, local, cat });
-  save();
-  closeModal('modal-evento');
-  renderEventos();
-  document.getElementById('stat-eventos').textContent = data.eventos.length;
-  ['titulo','desc','data','hora','local'].forEach(f => document.getElementById('evento-'+f).value = '');
-}
- 
-function openAdminModal() {
+  const itens = raw.split('\n').map(s => s.trim()).filter(Boolean);
+  const btn = document.getElementById('btn-save-merenda');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try {
+    await setDoc(doc(db, 'merenda', editingMerendaKey), { itens, updatedAt: serverTimestamp() });
+    closeModal('modal-merenda');
+    toast('✅ Cardápio salvo com sucesso!');
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Salvar no Firebase';
+};
+
+// ─── ADMIN ────────────────────────────────────────────────────
+window.openAdminModal = function() {
   if (isAdmin) {
     isAdmin = false;
-    alert('Modo admin desativado.');
-    renderEventos();
-    renderMerenda();
+    document.getElementById('nav-admin-btn').classList.remove('ativo');
+    document.getElementById('nav-admin-btn').textContent = '⚙ Admin';
+    renderEventos(); renderMerenda();
+    toast('Modo admin desativado.');
     return;
   }
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-error').style.display = 'none';
   document.getElementById('modal-admin').classList.add('open');
-}
- 
-function checkPin() {
+};
+
+window.checkPin = function() {
   const val = document.getElementById('pin-input').value;
   if (val.length === 4) {
     if (val === ADMIN_PIN) {
       isAdmin = true;
       closeModal('modal-admin');
-      renderEventos();
-      renderMerenda();
-      alert('✅ Modo admin ativado! Agora você pode editar a merenda e adicionar eventos.\n\nPara sair, clique em "Admin" novamente.');
+      document.getElementById('nav-admin-btn').classList.add('ativo');
+      document.getElementById('nav-admin-btn').textContent = '✓ Admin ON';
+      renderEventos(); renderMerenda();
+      toast('✅ Modo admin ativado!');
     } else {
       document.getElementById('pin-error').style.display = 'block';
       document.getElementById('pin-input').value = '';
     }
   }
-}
- 
-function closeModal(id) {
+};
+
+window.closeModal = function(id) {
   document.getElementById(id).classList.remove('open');
-}
- 
+};
+
 document.querySelectorAll('.modal-overlay').forEach(m => {
-  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+  m.addEventListener('click', e => { if (e.target === m && m.id !== 'modal-setup') m.classList.remove('open'); });
 });
- 
-renderInicio();
-renderOpinioes('likes');
+
+// ─── INICIALIZAÇÃO ────────────────────────────────────────────
+const savedCfg = localStorage.getItem(STORAGE_KEY);
+if (savedCfg) {
+  try {
+    initFirebase(JSON.parse(savedCfg));
+  } catch(e) {
+    localStorage.removeItem(STORAGE_KEY);
+    document.getElementById('modal-setup').classList.add('open');
+    hideLoading();
+  }
+} else {
+  hideLoading();
+}
