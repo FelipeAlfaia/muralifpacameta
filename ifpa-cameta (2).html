@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IFPA - Campus Cametá</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --verde: #1B6E3E;
+    --verde-claro: #2E9B5A;
+    --verde-escuro: #0F4425;
+    --verde-bg: #E8F5ED;
+    --amarelo: #F5C518;
+    --branco: #FAFAF8;
+    --cinza-claro: #F2F1EE;
+    --cinza: #8A8A85;
+    --texto: #1A1A18;
+    --texto-muted: #5A5A56;
+    --border: rgba(30,80,50,0.12);
+    --radius: 14px;
+    --shadow: 0 2px 16px rgba(15,68,37,0.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--branco); color: var(--texto); line-height: 1.65; }
+
+  /* LOADING */
+  #loading-screen {
+    position: fixed; inset: 0; background: var(--verde-escuro);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 9999; transition: opacity 0.5s;
+  }
+  #loading-screen.hide { opacity: 0; pointer-events: none; }
+  .loading-logo {
+    width: 64px; height: 64px; background: var(--amarelo); border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Sora', sans-serif; font-weight: 700; font-size: 20px;
+    color: var(--verde-escuro); margin-bottom: 20px;
+  }
+  .loading-txt { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 24px; }
+  .loading-bar { width: 200px; height: 3px; background: rgba(255,255,255,0.15); border-radius: 2px; overflow: hidden; }
+  .loading-bar-inner { height: 100%; background: var(--amarelo); border-radius: 2px; animation: loadprog 1.5s ease-in-out infinite; }
+  @keyframes loadprog { 0%{width:0;margin-left:0} 50%{width:60%;margin-left:20%} 100%{width:0;margin-left:100%} }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 8000;
+    background: var(--verde-escuro); color: #fff;
+    padding: 12px 20px; border-radius: 10px; font-size: 13px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    transform: translateY(80px); opacity: 0; transition: all 0.3s;
+    max-width: 300px;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.error { background: #DC2626; }
+
+  /* NAV */
+  nav {
+    background: var(--verde-escuro); padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 64px; position: sticky; top: 0; z-index: 100;
+  }
+  .nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+  .logo-badge {
+    width: 40px; height: 40px; background: var(--amarelo); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Sora', sans-serif; font-weight: 700; font-size: 13px;
+    color: var(--verde-escuro); letter-spacing: -0.5px;
+  }
+  .nav-title { font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 600; color: #fff; line-height: 1.2; }
+  .nav-subtitle { font-size: 11px; color: rgba(255,255,255,0.55); font-weight: 300; }
+  .nav-links { display: flex; gap: 6px; }
+  .nav-link {
+    color: rgba(255,255,255,0.75); font-size: 13px; font-weight: 400;
+    padding: 6px 14px; border-radius: 8px; transition: all 0.2s; cursor: pointer;
+  }
+  .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.12); color: #fff; }
+  .nav-admin-btn {
+    background: var(--amarelo); color: var(--verde-escuro); border: none;
+    border-radius: 8px; padding: 7px 16px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: opacity 0.2s;
+  }
+  .nav-admin-btn:hover { opacity: 0.85; }
+  .nav-admin-btn.ativo { background: #fff; color: var(--verde-escuro); }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, var(--verde-escuro) 0%, var(--verde) 60%, var(--verde-claro) 100%);
+    padding: 64px 2rem 72px; text-align: center; position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute; top: -60px; right: -60px;
+    width: 280px; height: 280px; border-radius: 50%; background: rgba(245,197,24,0.08);
+  }
+  .hero::after {
+    content: ''; position: absolute; bottom: -80px; left: -40px;
+    width: 220px; height: 220px; border-radius: 50%; background: rgba(255,255,255,0.04);
+  }
+  .hero-tag {
+    display: inline-block; background: rgba(245,197,24,0.2); color: var(--amarelo);
+    font-size: 12px; font-weight: 500; letter-spacing: 0.5px; padding: 5px 14px;
+    border-radius: 20px; margin-bottom: 18px; border: 1px solid rgba(245,197,24,0.3);
+  }
+  .hero h1 {
+    font-family: 'Sora', sans-serif; font-size: clamp(26px,5vw,42px);
+    font-weight: 700; color: #fff; line-height: 1.2; margin-bottom: 14px;
+  }
+  .hero p { font-size: 16px; color: rgba(255,255,255,0.7); max-width: 480px; margin: 0 auto 32px; font-weight: 300; }
+  .hero-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn-hero {
+    background: var(--amarelo); color: var(--verde-escuro); border: none;
+    padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: transform 0.15s;
+  }
+  .btn-hero:hover { transform: translateY(-1px); }
+  .btn-hero-outline {
+    background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,0.35);
+    padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 500;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: border-color 0.2s;
+  }
+  .btn-hero-outline:hover { border-color: rgba(255,255,255,0.7); }
+
+  /* TABS */
+  .tabs-wrapper {
+    background: var(--cinza-claro); border-bottom: 1px solid var(--border);
+    padding: 0 2rem; display: flex; overflow-x: auto;
+  }
+  .tab {
+    padding: 16px 22px; font-size: 14px; font-weight: 500; color: var(--texto-muted);
+    cursor: pointer; border-bottom: 2.5px solid transparent; white-space: nowrap;
+    transition: all 0.2s; display: flex; align-items: center; gap: 7px;
+  }
+  .tab:hover { color: var(--verde); }
+  .tab.active { color: var(--verde); border-bottom-color: var(--verde); }
+
+  /* MAIN */
+  .main { max-width: 900px; margin: 0 auto; padding: 2rem; }
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* STATS */
+  .stats-strip { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 2rem; }
+  .stat-card {
+    background: var(--branco); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px; text-align: center;
+  }
+  .stat-number { font-family: 'Sora', sans-serif; font-size: 26px; font-weight: 700; color: var(--verde); }
+  .stat-label { font-size: 12px; color: var(--texto-muted); margin-top: 2px; }
+
+  /* OPINIONS */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 12px; }
+  .section-title { font-family: 'Sora', sans-serif; font-size: 20px; font-weight: 600; }
+  .opinion-form {
+    background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: var(--shadow);
+  }
+  .opinion-form h3 { font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--verde-escuro); }
+  .form-row { display: flex; gap: 10px; align-items: flex-start; }
+  .opinion-textarea {
+    flex: 1; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; resize: vertical; min-height: 80px;
+    color: var(--texto); background: var(--cinza-claro); outline: none; transition: border-color 0.2s;
+  }
+  .opinion-textarea:focus { border-color: var(--verde-claro); background: #fff; }
+  .btn-submit {
+    background: var(--verde); color: #fff; border: none; border-radius: 10px;
+    padding: 12px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.2s; white-space: nowrap; align-self: flex-end;
+  }
+  .btn-submit:hover { background: var(--verde-escuro); }
+  .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+  .opinions-list { display: flex; flex-direction: column; gap: 14px; }
+  .opinion-card {
+    background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 1.25rem 1.5rem; display: flex; gap: 14px; align-items: flex-start;
+    transition: box-shadow 0.2s;
+  }
+  .opinion-card:hover { box-shadow: var(--shadow); }
+  .opinion-body { flex: 1; }
+  .opinion-text { font-size: 14px; line-height: 1.6; color: var(--texto); margin-bottom: 8px; }
+  .opinion-meta { font-size: 12px; color: var(--cinza); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .opinion-tag { background: var(--verde-bg); color: var(--verde); padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; }
+  .like-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: var(--cinza-claro); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; cursor: pointer; min-width: 52px; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+  }
+  .like-btn:hover { background: var(--verde-bg); border-color: var(--verde-claro); }
+  .like-btn.liked { background: var(--verde-bg); border-color: var(--verde); }
+  .like-btn .like-icon { font-size: 18px; }
+  .like-count { font-size: 13px; font-weight: 600; color: var(--verde); }
+  .sort-bar { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .sort-btn {
+    background: var(--cinza-claro); border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 14px; font-size: 12px; font-weight: 500; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; color: var(--texto-muted); transition: all 0.15s;
+  }
+  .sort-btn.active, .sort-btn:hover { background: var(--verde-bg); color: var(--verde); border-color: var(--verde-claro); }
+
+  /* EVENTS */
+  .events-grid { display: flex; flex-direction: column; gap: 14px; }
+  .event-card {
+    background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 1.25rem 1.5rem; display: flex; gap: 18px; align-items: flex-start; transition: box-shadow 0.2s;
+  }
+  .event-card:hover { box-shadow: var(--shadow); }
+  .event-date-box {
+    background: var(--verde-escuro); color: #fff; border-radius: 10px;
+    min-width: 54px; padding: 8px 6px; text-align: center; flex-shrink: 0;
+  }
+  .event-day { font-family: 'Sora', sans-serif; font-size: 22px; font-weight: 700; line-height: 1; }
+  .event-month { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.75; margin-top: 2px; }
+  .event-body { flex: 1; }
+  .event-title { font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .event-desc { font-size: 13px; color: var(--texto-muted); margin-bottom: 10px; line-height: 1.5; }
+  .event-meta { display: flex; gap: 14px; font-size: 12px; color: var(--cinza); flex-wrap: wrap; align-items: center; }
+  .event-badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 6px; margin-bottom: 6px; }
+  .badge-cultura { background: #FEF3C7; color: #92400E; }
+  .badge-academico { background: #DBEAFE; color: #1E40AF; }
+  .badge-esporte { background: #D1FAE5; color: #065F46; }
+  .badge-geral { background: var(--verde-bg); color: var(--verde); }
+
+  /* MERENDA */
+  .merenda-controls { display: flex; gap: 12px; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .week-nav {
+    display: flex; align-items: center; gap: 8px; background: var(--cinza-claro);
+    border: 1px solid var(--border); border-radius: 10px; padding: 6px 14px;
+  }
+  .week-nav button {
+    background: none; border: none; cursor: pointer; color: var(--verde);
+    font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 4px; transition: background 0.15s;
+  }
+  .week-nav button:hover { background: var(--verde-bg); }
+  .week-label { font-size: 13px; font-weight: 500; color: var(--texto-muted); min-width: 120px; text-align: center; }
+  .merenda-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 14px; }
+  .merenda-day { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: box-shadow 0.2s; }
+  .merenda-day:hover { box-shadow: var(--shadow); }
+  .merenda-day.today { border-color: var(--verde-claro); border-width: 2px; }
+  .merenda-day-header {
+    background: var(--verde); color: #fff; padding: 10px 14px; font-size: 12px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .merenda-day.today .merenda-day-header { background: var(--verde-claro); }
+  .today-tag { background: var(--amarelo); color: var(--verde-escuro); font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+  .merenda-day-body { padding: 14px; }
+  .merenda-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; font-size: 13px; line-height: 1.4; }
+  .merenda-item:last-child { margin-bottom: 0; }
+  .merenda-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--verde-claro); flex-shrink: 0; margin-top: 4px; }
+  .merenda-empty { font-size: 12px; color: var(--cinza); font-style: italic; text-align: center; padding: 10px 0; }
+  .merenda-edit-btn {
+    display: flex; align-items: center; gap: 4px; background: none;
+    border: 1px dashed var(--border); border-radius: 7px; padding: 6px 10px;
+    font-size: 11px; color: var(--cinza); cursor: pointer; width: 100%;
+    justify-content: center; margin-top: 10px; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+  }
+  .merenda-edit-btn:hover { border-color: var(--verde-claro); color: var(--verde); }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    z-index: 200; align-items: center; justify-content: center; padding: 1rem;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--branco); border-radius: 18px; padding: 2rem; max-width: 480px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.25); position: relative; }
+  .modal h2 { font-family: 'Sora', sans-serif; font-size: 18px; font-weight: 600; margin-bottom: 1.25rem; color: var(--verde-escuro); }
+  .modal-close {
+    position: absolute; top: 16px; right: 16px; background: var(--cinza-claro);
+    border: none; border-radius: 8px; width: 32px; height: 32px; cursor: pointer;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
+    color: var(--texto-muted); transition: background 0.15s;
+  }
+  .modal-close:hover { background: var(--border); }
+  .form-group { margin-bottom: 1rem; }
+  .form-label { font-size: 13px; font-weight: 500; margin-bottom: 6px; display: block; color: var(--texto-muted); }
+  .form-input, .form-select, .form-ta {
+    width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; background: var(--cinza-claro);
+    color: var(--texto); outline: none; transition: border-color 0.2s;
+  }
+  .form-input:focus, .form-select:focus, .form-ta:focus { border-color: var(--verde-claro); background: #fff; }
+  .form-ta { resize: vertical; min-height: 100px; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 1.5rem; }
+  .btn-cancel { background: var(--cinza-claro); color: var(--texto-muted); border: none; border-radius: 8px; padding: 10px 20px; font-size: 14px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .btn-save { background: var(--verde); color: #fff; border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.2s; }
+  .btn-save:hover { background: var(--verde-escuro); }
+  .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+  .pin-input {
+    font-size: 24px; letter-spacing: 8px; text-align: center; width: 180px;
+    border: 2px solid var(--border); border-radius: 10px; padding: 12px; margin: 1rem auto;
+    display: block; font-family: 'Sora', sans-serif; background: var(--cinza-claro); outline: none;
+  }
+  .pin-input:focus { border-color: var(--verde); background: #fff; }
+  .pin-error { color: #DC2626; font-size: 13px; text-align: center; margin-top: 8px; display: none; }
+
+  /* FIREBASE SETUP MODAL */
+  .setup-step { margin-bottom: 1rem; }
+  .setup-step p { font-size: 13px; color: var(--texto-muted); margin-bottom: 8px; line-height: 1.6; }
+  .code-block {
+    background: #1A1A18; color: #A8D5B5; border-radius: 8px;
+    padding: 12px 14px; font-family: monospace; font-size: 12px;
+    white-space: pre-wrap; word-break: break-all; margin-bottom: 8px;
+  }
+
+  footer { background: var(--verde-escuro); color: rgba(255,255,255,0.6); text-align: center; padding: 24px 2rem; font-size: 13px; margin-top: 4rem; }
+  footer strong { color: rgba(255,255,255,0.9); }
+
+  @media (max-width: 600px) {
+    .nav-links { display: none; }
+    .stats-strip { grid-template-columns: repeat(3,1fr); gap: 8px; }
+    .stat-number { font-size: 20px; }
+    .merenda-grid { grid-template-columns: 1fr 1fr; }
+    .form-row { flex-direction: column; }
+    .btn-submit { width: 100%; }
+    .hero { padding: 40px 1.5rem 50px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div class="loading-logo">IFPA</div>
+  <div class="loading-txt">Conectando ao servidor...</div>
+  <div class="loading-bar"><div class="loading-bar-inner"></div></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<nav>
+  <div class="nav-logo">
+    <div class="logo-badge">IFPA</div>
+    <div>
+      <div class="nav-title">Campus Cametá</div>
+      <div class="nav-subtitle">Instituto Federal do Pará</div>
+    </div>
+  </div>
+  <div class="nav-links">
+    <span class="nav-link active" onclick="showSection('inicio')">Início</span>
+    <span class="nav-link" onclick="showSection('opiniao')">Opiniões</span>
+    <span class="nav-link" onclick="showSection('eventos')">Eventos</span>
+    <span class="nav-link" onclick="showSection('merenda')">Merenda</span>
+  </div>
+  <button class="nav-admin-btn" id="nav-admin-btn" onclick="openAdminModal()">⚙ Admin</button>
+</nav>
+
+<div class="hero">
+  <div class="hero-tag">Grêmio Estudantil · IFPA Cametá</div>
+  <h1>Portal do Estudante<br>IFPA Cametá</h1>
+  <p>Fique por dentro dos eventos, veja a merenda do dia e contribua com suas ideias para melhorar o campus.</p>
+  <div class="hero-btns">
+    <button class="btn-hero" onclick="showSection('opiniao')">Dar minha opinião</button>
+    <button class="btn-hero-outline" onclick="showSection('merenda')">Ver merenda de hoje</button>
+  </div>
+</div>
+
+<div class="tabs-wrapper">
+  <div class="tab active" onclick="showSection('inicio')" id="tab-inicio">🏠 Início</div>
+  <div class="tab" onclick="showSection('opiniao')" id="tab-opiniao">💬 Opiniões</div>
+  <div class="tab" onclick="showSection('eventos')" id="tab-eventos">📅 Eventos</div>
+  <div class="tab" onclick="showSection('merenda')" id="tab-merenda">🍽 Merenda</div>
+</div>
+
+<div class="main">
+
+  <!-- INÍCIO -->
+  <div class="section active" id="section-inicio">
+    <div class="stats-strip">
+      <div class="stat-card"><div class="stat-number" id="stat-opiniao">—</div><div class="stat-label">Opiniões enviadas</div></div>
+      <div class="stat-card"><div class="stat-number" id="stat-eventos">—</div><div class="stat-label">Eventos este mês</div></div>
+      <div class="stat-card"><div class="stat-number" id="stat-likes">—</div><div class="stat-label">Likes em opiniões</div></div>
+    </div>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem;">
+      <h3 style="font-family:'Sora',sans-serif;font-size:16px;font-weight:600;margin-bottom:8px;color:var(--verde-escuro)">🍽 Merenda de Hoje</h3>
+      <div id="merenda-hoje-box" style="font-size:14px;color:var(--texto-muted);">Carregando...</div>
+    </div>
+    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;">
+      <h3 style="font-family:'Sora',sans-serif;font-size:16px;font-weight:600;margin-bottom:12px;color:var(--verde-escuro)">📌 Próximo Evento</h3>
+      <div id="proximo-evento-box">Carregando...</div>
+    </div>
+  </div>
+
+  <!-- OPINIÕES -->
+  <div class="section" id="section-opiniao">
+    <div class="section-header">
+      <h2 class="section-title">💬 Caixa de Opiniões</h2>
+    </div>
+    <div class="opinion-form">
+      <h3>Qual sua sugestão para melhorar o campus?</h3>
+      <div style="margin-bottom:10px;">
+        <select id="opiniao-categoria" class="form-select" style="width:auto;display:inline-block;min-width:200px;">
+          <option value="Infraestrutura">🏗 Infraestrutura</option>
+          <option value="Ensino">📚 Ensino</option>
+          <option value="Esporte e Lazer">⚽ Esporte e Lazer</option>
+          <option value="Alimentação">🍽 Alimentação</option>
+          <option value="Saúde">🏥 Saúde</option>
+          <option value="Outro">💡 Outro</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <textarea class="opinion-textarea" id="opiniao-texto" placeholder="Escreva sua opinião ou sugestão aqui..."></textarea>
+        <button class="btn-submit" id="btn-enviar" onclick="enviarOpiniao()">Enviar</button>
+      </div>
+    </div>
+    <div class="sort-bar">
+      <span style="font-size:12px;color:var(--cinza);align-self:center">Ordenar:</span>
+      <button class="sort-btn active" onclick="sortOpinioes('likes',this)">🔥 Mais votadas</button>
+      <button class="sort-btn" onclick="sortOpinioes('recentes',this)">🕐 Mais recentes</button>
+    </div>
+    <div class="opinions-list" id="opinions-list"><div style="text-align:center;padding:2rem;color:var(--cinza)">Carregando opiniões...</div></div>
+  </div>
+
+  <!-- EVENTOS -->
+  <div class="section" id="section-eventos">
+    <div class="section-header">
+      <h2 class="section-title">📅 Eventos do Campus</h2>
+      <button class="btn-submit" id="btn-add-evento" style="display:none" onclick="openEventoModal()">+ Adicionar Evento</button>
+    </div>
+    <div class="events-grid" id="events-grid"><div style="text-align:center;padding:2rem;color:var(--cinza)">Carregando eventos...</div></div>
+  </div>
+
+  <!-- MERENDA -->
+  <div class="section" id="section-merenda">
+    <div class="section-header"><h2 class="section-title">🍽 Cardápio da Merenda</h2></div>
+    <div class="merenda-controls">
+      <div class="week-nav">
+        <button onclick="changeWeek(-1)">‹</button>
+        <span class="week-label" id="week-label">Semana atual</span>
+        <button onclick="changeWeek(1)">›</button>
+      </div>
+      <span style="font-size:12px;color:var(--cinza)">Atualizado pelos servidores do campus</span>
+    </div>
+    <div class="merenda-grid" id="merenda-grid"></div>
+  </div>
+
+</div>
+
+<!-- MODAL: CONFIGURAÇÃO FIREBASE -->
+<div class="modal-overlay open" id="modal-setup">
+  <div class="modal" style="max-width:540px">
+    <h2>🔥 Configurar Firebase</h2>
+    <p style="font-size:13px;color:var(--texto-muted);margin-bottom:1.25rem;line-height:1.7">
+      Para que os dados fiquem salvos no servidor e compartilhados entre todos os alunos, você precisa criar um projeto gratuito no Firebase e colar as credenciais abaixo.
+    </p>
+
+    <div class="setup-step">
+      <p><strong>Passo 1:</strong> Acesse <a href="https://console.firebase.google.com" target="_blank" style="color:var(--verde)">console.firebase.google.com</a> → "Adicionar projeto" → dê um nome (ex: <em>ifpa-cameta</em>) → clique em Continuar até criar.</p>
+    </div>
+
+    <div class="setup-step">
+      <p><strong>Passo 2:</strong> Dentro do projeto, clique em <strong>Firestore Database</strong> (menu lateral) → "Criar banco de dados" → modo <strong>Produção</strong> → escolha a região <em>southamerica-east1</em>.</p>
+    </div>
+
+    <div class="setup-step">
+      <p><strong>Passo 3:</strong> Ainda no Firestore, vá em <strong>Regras</strong> e substitua o conteúdo por:</p>
+      <div class="code-block">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /opinioes/{doc} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+                      .hasOnly(['likes']);
+    }
+    match /eventos/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /merenda/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}</div>
+      <p style="font-size:12px;color:var(--cinza)">⚠ Eventos e merenda só podem ser editados via painel do Firebase (pelos servidores). O PIN de admin neste site libera a interface — as regras acima são a segurança real.</p>
+    </div>
+
+    <div class="setup-step">
+      <p><strong>Passo 4:</strong> Vá em ⚙ <strong>Configurações do projeto</strong> → "Seus aplicativos" → clique em <strong>&lt;/&gt;</strong> (Web) → registre o app → copie o objeto <code>firebaseConfig</code> e cole aqui:</p>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Cole o firebaseConfig aqui (aceita JavaScript ou JSON):</label>
+      <textarea class="form-ta" id="firebase-config-input" style="font-family:monospace;font-size:12px;min-height:175px" placeholder="Cole o bloco inteiro que o Firebase mostrar, por exemplo:
+
+const firebaseConfig = {
+  apiKey: &quot;AIzaSy...&quot;,
+  authDomain: &quot;ifpa-cameta.firebaseapp.com&quot;,
+  projectId: &quot;ifpa-cameta&quot;,
+  storageBucket: &quot;ifpa-cameta.appspot.com&quot;,
+  messagingSenderId: &quot;123456789&quot;,
+  appId: &quot;1:123456789:web:abc123&quot;
+};"></textarea>
+      <p style="font-size:12px;color:var(--cinza);margin-top:6px">&#128161; No Firebase: &#9881; Configura&#231;&#245;es do projeto &rarr; Seus aplicativos &rarr; selecione o app web &rarr; copie todo o bloco <code style="font-size:11px">firebaseConfig</code></p>
+    </div>
+    <div id="setup-error" style="color:#DC2626;font-size:13px;margin-bottom:10px;display:none"></div>
+    <div class="modal-footer">
+      <button class="btn-save" onclick="salvarConfigFirebase()">Conectar ao Firebase →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ADMIN PIN -->
+<div class="modal-overlay" id="modal-admin">
+  <div class="modal" style="max-width:380px">
+    <button class="modal-close" onclick="closeModal('modal-admin')">✕</button>
+    <h2>🔐 Área dos Servidores</h2>
+    <div style="text-align:center">
+      <p style="font-size:14px;color:var(--texto-muted)">Digite o PIN de acesso para gerenciar eventos e merenda.</p>
+      <input class="pin-input" id="pin-input" type="password" maxlength="4" placeholder="····" oninput="checkPin()">
+      <div class="pin-error" id="pin-error">PIN incorreto. Tente novamente.</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: MERENDA -->
+<div class="modal-overlay" id="modal-merenda">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-merenda')">✕</button>
+    <h2 id="modal-merenda-title">Editar Merenda</h2>
+    <div class="form-group">
+      <label class="form-label">Itens do cardápio (um por linha)</label>
+      <textarea class="form-ta" id="merenda-input" placeholder="Ex:&#10;Arroz com feijão&#10;Frango grelhado&#10;Salada de alface&#10;Suco de goiaba"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-merenda')">Cancelar</button>
+      <button class="btn-save" id="btn-save-merenda" onclick="saveMerenda()">Salvar no Firebase</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EVENTO -->
+<div class="modal-overlay" id="modal-evento">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-evento')">✕</button>
+    <h2>📅 Novo Evento</h2>
+    <div class="form-group">
+      <label class="form-label">Título do evento</label>
+      <input class="form-input" id="evento-titulo" type="text" placeholder="Ex: Semana de Ciência e Tecnologia">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Descrição</label>
+      <textarea class="form-ta" id="evento-desc" placeholder="Descreva o evento..."></textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group">
+        <label class="form-label">Data</label>
+        <input class="form-input" id="evento-data" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Horário</label>
+        <input class="form-input" id="evento-hora" type="time">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group">
+        <label class="form-label">Local</label>
+        <input class="form-input" id="evento-local" type="text" placeholder="Ex: Auditório">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Categoria</label>
+        <select class="form-select" id="evento-cat">
+          <option value="academico">Acadêmico</option>
+          <option value="cultura">Cultura</option>
+          <option value="esporte">Esporte</option>
+          <option value="geral">Geral</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-evento')">Cancelar</button>
+      <button class="btn-save" id="btn-save-evento" onclick="saveEvento()">Salvar no Firebase</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <strong>IFPA Campus Cametá</strong> · Portal do Estudante · Desenvolvido pelo Grêmio Estudantil
+</footer>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {
+  getFirestore, collection, doc,
+  addDoc, setDoc, deleteDoc, getDoc,
+  onSnapshot, query, orderBy, updateDoc, increment, serverTimestamp
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+// ─── CONSTANTES ───────────────────────────────────────────────
+const ADMIN_PIN = '1234'; // Altere para o PIN desejado
+const STORAGE_KEY = 'ifpa_fb_config';
+const LIKED_KEY = 'ifpa_liked_fb';
+
+const DIAS = ['Segunda','Terça','Quarta','Quinta','Sexta'];
+const DIAS_SHORT = ['SEG','TER','QUA','QUI','SEX'];
+const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+// ─── STATE ────────────────────────────────────────────────────
+let db = null;
+let isAdmin = false;
+let currentWeekOffset = 0;
+let editingMerendaKey = null;
+let currentSort = 'likes';
+let opinioes = [];
+let eventos = [];
+let merenda = {};
+let likedOpinioes = JSON.parse(localStorage.getItem(LIKED_KEY) || '[]');
+let unsubOpinioes = null;
+let unsubEventos = null;
+let unsubMerenda = null;
+
+// ─── TOAST ────────────────────────────────────────────────────
+function toast(msg, tipo = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (tipo ? ' ' + tipo : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = '', 3000);
+}
+
+// ─── FIREBASE SETUP ───────────────────────────────────────────
+function salvarConfigFirebase() {
+  window.salvarConfigFirebase();
+}
+window.salvarConfigFirebase = function() {
+  const raw = document.getElementById('firebase-config-input').value.trim();
+  const errEl = document.getElementById('setup-error');
+  errEl.style.display = 'none';
+
+  // Extrai só o conteúdo entre o primeiro { e o último }
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) {
+    errEl.textContent = 'Não encontrei um objeto { } válido. Copie somente o firebaseConfig do console Firebase.';
+    errEl.style.display = 'block';
+    return;
+  }
+  let body = raw.slice(start + 1, end);
+
+  // Converte JS para JSON:
+  // 1) Remove comentários de linha (// ...)
+  body = body.replace(/\/\/[^\n]*/g, '');
+  // 2) Coloca aspas duplas nas chaves sem aspas: apiKey: → "apiKey":
+  body = body.replace(/([{,\s])([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+  // 3) Troca aspas simples por duplas nos valores
+  body = body.replace(/:\s*'([^']*)'/g, ': "$1"');
+  // 4) Remove vírgulas antes de }
+  body = body.replace(/,\s*(})/g, '$1');
+
+  let cfg;
+  try {
+    cfg = JSON.parse('{' + body + '}');
+  } catch(e) {
+    errEl.innerHTML = 'Não consegui interpretar o conteúdo. Tente colar <strong>somente o trecho entre { e }</strong>, por exemplo:<br><br>'
+      + '<code style="font-size:11px;background:#f5f5f5;padding:6px 10px;display:block;border-radius:6px;margin-top:6px;line-height:1.8">'
+      + '{\n  "apiKey": "AIzaSy...",\n  "projectId": "ifpa-cameta",\n  ...\n}'
+      + '</code>';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!cfg.apiKey || !cfg.projectId) {
+    errEl.textContent = 'Configuração incompleta: os campos apiKey e projectId são obrigatórios.';
+    errEl.style.display = 'block';
+    return;
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+  initFirebase(cfg);
+};
+
+function initFirebase(cfg) {
+  try {
+    const app = initializeApp(cfg);
+    db = getFirestore(app);
+    document.getElementById('modal-setup').classList.remove('open');
+    iniciarListeners();
+  } catch(e) {
+    document.getElementById('setup-error').textContent = 'Erro ao conectar: ' + e.message;
+    document.getElementById('setup-error').style.display = 'block';
+  }
+}
+
+function iniciarListeners() {
+  // Opiniões — tempo real
+  const qOp = query(collection(db, 'opinioes'), orderBy('createdAt', 'desc'));
+  unsubOpinioes = onSnapshot(qOp, snap => {
+    opinioes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderOpinioes(currentSort);
+    atualizarStats();
+  });
+
+  // Eventos — tempo real
+  const qEv = query(collection(db, 'eventos'), orderBy('data'));
+  unsubEventos = onSnapshot(qEv, snap => {
+    eventos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderEventos();
+    atualizarStats();
+  });
+
+  // Merenda — tempo real
+  unsubMerenda = onSnapshot(collection(db, 'merenda'), snap => {
+    merenda = {};
+    snap.docs.forEach(d => { merenda[d.id] = d.data().itens || []; });
+    renderMerenda();
+    renderInicio();
+  });
+
+  hideLoading();
+}
+
+function hideLoading() {
+  const ls = document.getElementById('loading-screen');
+  ls.classList.add('hide');
+  setTimeout(() => ls.style.display = 'none', 600);
+}
+
+// ─── SEÇÕES ───────────────────────────────────────────────────
+window.showSection = function(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('section-' + id).classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+  if (id === 'merenda') renderMerenda();
+  if (id === 'inicio') renderInicio();
+};
+
+// ─── STATS & INÍCIO ───────────────────────────────────────────
+function atualizarStats() {
+  const totLikes = opinioes.reduce((s, o) => s + (o.likes || 0), 0);
+  document.getElementById('stat-opiniao').textContent = opinioes.length;
+  document.getElementById('stat-eventos').textContent = eventos.length;
+  document.getElementById('stat-likes').textContent = totLikes;
+}
+
+function renderInicio() {
+  atualizarStats();
+  const todayKey = dateKey(new Date());
+  const items = merenda[todayKey];
+  const box = document.getElementById('merenda-hoje-box');
+  if (items && items.length) {
+    box.innerHTML = items.map(i => `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:14px"><span style="color:var(--verde-claro);font-size:16px">•</span>${i}</div>`).join('');
+  } else {
+    box.innerHTML = '<span style="color:var(--cinza);font-style:italic;font-size:13px">Cardápio ainda não cadastrado para hoje</span>';
+  }
+  const now = new Date();
+  const prox = [...eventos].filter(e => new Date(e.data + 'T00:00:00') >= now).sort((a,b) => a.data.localeCompare(b.data))[0];
+  const pbox = document.getElementById('proximo-evento-box');
+  if (prox) {
+    const d = new Date(prox.data + 'T00:00:00');
+    pbox.innerHTML = `<div style="display:flex;gap:14px;align-items:flex-start">
+      <div style="background:var(--verde-escuro);color:#fff;border-radius:10px;min-width:50px;padding:8px 6px;text-align:center;flex-shrink:0">
+        <div style="font-family:'Sora',sans-serif;font-size:20px;font-weight:700;line-height:1">${d.getDate()}</div>
+        <div style="font-size:10px;opacity:0.75;text-transform:uppercase">${MESES[d.getMonth()]}</div>
+      </div>
+      <div>
+        <span class="event-badge badge-${prox.cat}">${prox.cat.charAt(0).toUpperCase()+prox.cat.slice(1)}</span>
+        <div style="font-family:'Sora',sans-serif;font-weight:600;font-size:15px;margin-bottom:4px">${prox.titulo}</div>
+        <div style="font-size:12px;color:var(--cinza)">🕐 ${prox.hora || '—'} · 📍 ${prox.local || '—'}</div>
+      </div>
+    </div>`;
+  } else {
+    pbox.innerHTML = '<span style="color:var(--cinza);font-style:italic;font-size:13px">Nenhum evento próximo cadastrado</span>';
+  }
+}
+
+// ─── OPINIÕES ─────────────────────────────────────────────────
+window.enviarOpiniao = async function() {
+  if (!db) return;
+  const texto = document.getElementById('opiniao-texto').value.trim();
+  const cat = document.getElementById('opiniao-categoria').value;
+  if (!texto) { toast('Escreva sua opinião antes de enviar.', 'error'); return; }
+  const btn = document.getElementById('btn-enviar');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  try {
+    await addDoc(collection(db, 'opinioes'), {
+      texto, cat, likes: 0, createdAt: serverTimestamp(),
+      data: new Date().toLocaleDateString('pt-BR')
+    });
+    document.getElementById('opiniao-texto').value = '';
+    toast('✅ Opinião enviada! Obrigado pela contribuição.');
+  } catch(e) {
+    toast('Erro ao enviar: ' + e.message, 'error');
+  }
+  btn.disabled = false;
+  btn.textContent = 'Enviar';
+};
+
+window.sortOpinioes = function(mode, btn) {
+  currentSort = mode;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderOpinioes(mode);
+};
+
+function renderOpinioes(mode) {
+  const list = [...opinioes];
+  if (mode === 'likes') list.sort((a,b) => (b.likes||0) - (a.likes||0));
+  const el = document.getElementById('opinions-list');
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--cinza);padding:2rem;font-size:14px">Ainda não há opiniões. Seja o primeiro a contribuir! 💡</div>';
+    return;
+  }
+  el.innerHTML = list.map(o => {
+    const liked = likedOpinioes.includes(o.id);
+    return `<div class="opinion-card">
+      <div class="opinion-body">
+        <div class="opinion-text">${o.texto}</div>
+        <div class="opinion-meta">
+          <span class="opinion-tag">${o.cat}</span>
+          <span>📅 ${o.data || ''}</span>
+        </div>
+      </div>
+      <button class="like-btn ${liked ? 'liked' : ''}" onclick="toggleLike('${o.id}')" title="Votar nesta sugestão">
+        <span class="like-icon">👍</span>
+        <span class="like-count">${o.likes || 0}</span>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+window.toggleLike = async function(id) {
+  if (!db) return;
+  const idx = likedOpinioes.indexOf(id);
+  const delta = idx === -1 ? 1 : -1;
+  if (idx === -1) likedOpinioes.push(id);
+  else likedOpinioes.splice(idx, 1);
+  localStorage.setItem(LIKED_KEY, JSON.stringify(likedOpinioes));
+  try {
+    await updateDoc(doc(db, 'opinioes', id), { likes: increment(delta) });
+  } catch(e) {
+    toast('Erro ao registrar voto.', 'error');
+  }
+};
+
+// ─── EVENTOS ──────────────────────────────────────────────────
+function renderEventos() {
+  document.getElementById('btn-add-evento').style.display = isAdmin ? 'block' : 'none';
+  const grid = document.getElementById('events-grid');
+  if (!eventos.length) {
+    grid.innerHTML = '<div style="text-align:center;color:var(--cinza);padding:2rem;font-size:14px">Nenhum evento cadastrado.</div>';
+    return;
+  }
+  grid.innerHTML = eventos.map(e => {
+    const d = new Date(e.data + 'T00:00:00');
+    return `<div class="event-card">
+      <div class="event-date-box">
+        <div class="event-day">${d.getDate()}</div>
+        <div class="event-month">${MESES[d.getMonth()]}</div>
+      </div>
+      <div class="event-body">
+        <span class="event-badge badge-${e.cat}">${e.cat.charAt(0).toUpperCase()+e.cat.slice(1)}</span>
+        <div class="event-title">${e.titulo}</div>
+        <div class="event-desc">${e.desc || ''}</div>
+        <div class="event-meta">
+          <span>🕐 ${e.hora || '—'}</span>
+          <span>📍 ${e.local || '—'}</span>
+          ${isAdmin ? `<button onclick="deleteEvento('${e.id}')" style="margin-left:auto;background:none;border:none;color:#DC2626;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif">✕ Remover</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.openEventoModal = function() {
+  document.getElementById('modal-evento').classList.add('open');
+};
+
+window.saveEvento = async function() {
+  if (!db) return;
+  const titulo = document.getElementById('evento-titulo').value.trim();
+  const desc = document.getElementById('evento-desc').value.trim();
+  const data_ = document.getElementById('evento-data').value;
+  const hora = document.getElementById('evento-hora').value;
+  const local = document.getElementById('evento-local').value.trim();
+  const cat = document.getElementById('evento-cat').value;
+  if (!titulo || !data_) { toast('Preencha título e data.', 'error'); return; }
+  const btn = document.getElementById('btn-save-evento');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try {
+    await addDoc(collection(db, 'eventos'), { titulo, desc, data: data_, hora, local, cat, createdAt: serverTimestamp() });
+    closeModal('modal-evento');
+    ['titulo','desc','data','hora','local'].forEach(f => document.getElementById('evento-'+f).value = '');
+    toast('✅ Evento cadastrado com sucesso!');
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Salvar no Firebase';
+};
+
+window.deleteEvento = async function(id) {
+  if (!confirm('Remover este evento permanentemente?')) return;
+  try {
+    await deleteDoc(doc(db, 'eventos', id));
+    toast('Evento removido.');
+  } catch(e) {
+    toast('Erro ao remover: ' + e.message, 'error');
+  }
+};
+
+// ─── MERENDA ──────────────────────────────────────────────────
+function getWeekDates(offset) {
+  const now = new Date();
+  const day = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
+  return Array.from({length: 5}, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate()+i); return d; });
+}
+function dateKey(d) { return d.toISOString().slice(0,10); }
+function isToday(d) { return dateKey(d) === dateKey(new Date()); }
+
+function renderMerenda() {
+  const dates = getWeekDates(currentWeekOffset);
+  const s = dates[0], e = dates[4];
+  document.getElementById('week-label').textContent = `${s.getDate()} ${MESES[s.getMonth()]} – ${e.getDate()} ${MESES[e.getMonth()]}`;
+  document.getElementById('merenda-grid').innerHTML = dates.map((d,i) => {
+    const key = dateKey(d);
+    const items = merenda[key] || [];
+    const today = isToday(d);
+    return `<div class="merenda-day ${today ? 'today' : ''}">
+      <div class="merenda-day-header">
+        <span>${DIAS_SHORT[i]} ${d.getDate()}/${(d.getMonth()+1).toString().padStart(2,'0')}</span>
+        ${today ? '<span class="today-tag">HOJE</span>' : ''}
+      </div>
+      <div class="merenda-day-body">
+        ${items.length
+          ? items.map(it => `<div class="merenda-item"><div class="merenda-dot"></div><span>${it}</span></div>`).join('')
+          : '<div class="merenda-empty">Cardápio não informado</div>'}
+        ${isAdmin ? `<button class="merenda-edit-btn" onclick="openMerendaEdit('${key}','${DIAS[i]} ${d.getDate()}/${d.getMonth()+1}')">✏ Editar</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.changeWeek = function(dir) { currentWeekOffset += dir; renderMerenda(); };
+
+window.openMerendaEdit = function(key, label) {
+  editingMerendaKey = key;
+  document.getElementById('modal-merenda-title').textContent = `🍽 Editar Merenda – ${label}`;
+  document.getElementById('merenda-input').value = (merenda[key] || []).join('\n');
+  document.getElementById('modal-merenda').classList.add('open');
+};
+
+window.saveMerenda = async function() {
+  if (!db || !editingMerendaKey) return;
+  const raw = document.getElementById('merenda-input').value;
+  const itens = raw.split('\n').map(s => s.trim()).filter(Boolean);
+  const btn = document.getElementById('btn-save-merenda');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try {
+    await setDoc(doc(db, 'merenda', editingMerendaKey), { itens, updatedAt: serverTimestamp() });
+    closeModal('modal-merenda');
+    toast('✅ Cardápio salvo com sucesso!');
+  } catch(e) {
+    toast('Erro: ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = 'Salvar no Firebase';
+};
+
+// ─── ADMIN ────────────────────────────────────────────────────
+window.openAdminModal = function() {
+  if (isAdmin) {
+    isAdmin = false;
+    document.getElementById('nav-admin-btn').classList.remove('ativo');
+    document.getElementById('nav-admin-btn').textContent = '⚙ Admin';
+    renderEventos(); renderMerenda();
+    toast('Modo admin desativado.');
+    return;
+  }
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-error').style.display = 'none';
+  document.getElementById('modal-admin').classList.add('open');
+};
+
+window.checkPin = function() {
+  const val = document.getElementById('pin-input').value;
+  if (val.length === 4) {
+    if (val === ADMIN_PIN) {
+      isAdmin = true;
+      closeModal('modal-admin');
+      document.getElementById('nav-admin-btn').classList.add('ativo');
+      document.getElementById('nav-admin-btn').textContent = '✓ Admin ON';
+      renderEventos(); renderMerenda();
+      toast('✅ Modo admin ativado!');
+    } else {
+      document.getElementById('pin-error').style.display = 'block';
+      document.getElementById('pin-input').value = '';
+    }
+  }
+};
+
+window.closeModal = function(id) {
+  document.getElementById(id).classList.remove('open');
+};
+
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m && m.id !== 'modal-setup') m.classList.remove('open'); });
+});
+
+// ─── INICIALIZAÇÃO ────────────────────────────────────────────
+const savedCfg = localStorage.getItem(STORAGE_KEY);
+if (savedCfg) {
+  try {
+    initFirebase(JSON.parse(savedCfg));
+  } catch(e) {
+    localStorage.removeItem(STORAGE_KEY);
+    document.getElementById('modal-setup').classList.add('open');
+    hideLoading();
+  }
+} else {
+  hideLoading();
+}
+</script>
+</body>
+</html>
