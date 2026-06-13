@@ -947,5 +947,21 @@ if (savedCfg) {
   hideLoading();
 }
 </script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-analytics.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBlixw9ghgPPD_nVJkpSUosQHkeDrh0ybo",
+    authDomain: "ifpa-cameta.firebaseapp.com",
+    projectId: "ifpa-cameta",
+    storageBucket: "ifpa-cameta.firebasestorage.app",
+    messagingSenderId: "1043846135675",
+    appId: "1:1043846135675:web:0b861aba1bc96db49c87de",
+    measurementId: "G-LT36RY7VDR"
+  };
+  
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
 </body>
 </html>
